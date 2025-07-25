@@ -66,7 +66,7 @@ class Drift extends $Drift implements IDatabaseRepository {
     : super(executor ?? driftDatabase(name: 'immich', native: const DriftNativeOptions(shareAcrossIsolates: true)));
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -93,6 +93,15 @@ class Drift extends $Drift implements IDatabaseRepository {
             await m.alterTable(TableMigration(v4.personEntity));
             // asset_face_entity is added
             await m.create(v4.assetFaceEntity);
+          },
+          from4To5: (m, v5) async {
+            // Drops the (checksum, ownerId) and adds it back as (ownerId, checksum)
+            await customStatement('DROP INDEX IF EXISTS UQ_remote_asset_owner_checksum');
+            await m.create(v5.idxRemoteAssetOwnerChecksum);
+            // Adds libraryId to remote_asset_entity
+            await m.addColumn(v5.remoteAssetEntity, v5.remoteAssetEntity.libraryId);
+            await m.create(v5.uQRemoteAssetsOwnerChecksum);
+            await m.create(v5.uQRemoteAssetsOwnerLibraryChecksum);
           },
         ),
       );
